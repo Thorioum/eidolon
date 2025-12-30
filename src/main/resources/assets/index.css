@@ -1,0 +1,25 @@
+@font-face {
+    font-family: "Montserrat";
+    src: url('fonts/Montserrat-Regular.ttf');
+}
+
+.root {
+    -fx-font-family: "Montserrat";
+    -fx-font-size: 13pt;
+}
+
+.welcome {
+    -fx-spacing: 20px;
+    -fx-padding: 50px;
+    -fx-alignment: center;
+}
+
+.welcome .ikonli-font-icon {
+    -fx-icon-size: 64px;
+}
+
+.welcome .label {
+    -fx-wrap-text: true;
+    -fx-pref-width: 450px;
+    -fx-text-alignment: center;
+}

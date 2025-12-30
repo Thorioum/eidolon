@@ -1,0 +1,84 @@
+plugins {
+    id 'java'
+    id 'application'
+    id "org.openjfx.javafxplugin" version "0.1.0"
+    id "org.beryx.runtime" version "2.0.1"
+}
+
+group = 'net.thorioum'
+version = '1.01'
+
+application {
+    mainClass.set("net.thorioum.Eidolon")
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+    maven { url "https://mvn.0110.be/releases" }
+}
+
+javafx {
+    version = "21.0.3"
+    modules = [ "javafx.controls", "javafx.fxml" ]
+}
+
+dependencies {
+    implementation("com.google.code.gson:gson:2.13.2")
+
+    implementation('org.slf4j:slf4j-api:2.0.12')
+    implementation('org.slf4j:slf4j-log4j12:2.0.12')
+
+    implementation('com.github.felipeucelli:javatube:a9fb5e34db')
+
+    implementation("be.tarsos.dsp:jvm:2.5")
+    implementation("be.tarsos.dsp:core:2.5")
+
+    implementation("org.bytedeco:javacv:1.5.10")
+    implementation("org.bytedeco:ffmpeg:6.1.1-1.5.10:windows-x86_64")
+
+    implementation('org.jocl:jocl:2.0.5')
+    implementation('io.github.mkpaz:atlantafx-base:2.1.0')
+}
+
+
+// Copy JavaFX jars out of build/image/lib AFTER the image is created
+tasks.register('copyJavaFxToImage', Copy) {
+    from("$buildDir/image/lib") {
+        include "javafx-*.jar"
+    }
+    into("$buildDir/image/javafx")
+}
+
+tasks.named('runtime') {
+    finalizedBy(tasks.named('copyJavaFxToImage'))
+}
+runtime {
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+
+    modules = [
+            'java.base',
+            'java.desktop',
+            'java.logging',
+            'java.scripting',
+            'java.xml',
+            'jdk.unsupported',
+    ]
+
+    launcher {
+
+        jvmArgs = [
+                '--module-path', '..\\javafx',
+                '--add-modules', 'javafx.controls,javafx.fxml'
+        ]
+
+    }
+
+    jpackage {
+        imageOptions = ['--win-console=false']
+    }
+}
