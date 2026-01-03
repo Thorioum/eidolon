@@ -148,9 +148,15 @@ public class SoundFilesGrabber {
 
     public static boolean allowsDynamicTickrate(MinecraftVersion version) {
         MinecraftVersion firstVersionWithTick = new MinecraftVersion("23w43a",1698240877);
-        return version.isAfter(firstVersionWithTick) || version.compareTo(firstVersionWithTick) == 0;
+        return version.isAfterOrEqual(firstVersionWithTick);
     }
 
+    public static MinecraftVersion tryGetVersion(String name) {
+        for(MinecraftVersion version : soundMap.keySet()) {
+            if(version.str().equals(name)) return version;
+        }
+        return null;
+    }
 
     private static final String VERSION_MANIFEST = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 

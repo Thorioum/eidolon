@@ -4,6 +4,7 @@ import net.thorioum.result.CompleteAudioResult;
 import net.thorioum.result.SingleFrameResult;
 import net.thorioum.result.SingleSoundResult;
 import net.thorioum.sound.ConverterContext;
+import net.thorioum.sound.SoundFilesGrabber;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -32,7 +33,7 @@ public class DatapackWriter {
 
             File mcmeta = new File(unzippedFile.getAbsolutePath() + "/pack.mcmeta");
             mcmeta.createNewFile();
-            writeFile(mcmeta,"{\"pack\":{\"description\":[\"[https://github.com/Thorioum/eidolon] " + name + "\",\"Audio pack provided graciously and created meticulously by the eidolon project. For more information contact 'thorioum' on discord.\"],\"pack_format\":81}}");
+            writeFile(mcmeta,"{\"pack\":{\"description\":[\"[https://github.com/Thorioum/eidolon] " + name + "\",\"Audio pack provided graciously and created meticulously by the eidolon project. For more information contact 'thorioum' on discord.\"],\"pack_format\":1}}");
 
             File dataDir = new File(unzippedFile.getAbsolutePath() + "/data");
             dataDir.mkdirs();
@@ -40,7 +41,7 @@ public class DatapackWriter {
 
             File dataSubDir = new File(dataDir.getAbsolutePath() + "/" + name);
             dataSubDir.mkdirs();
-            dataSubDir = new File(dataSubDir.getAbsolutePath() + "/function");
+            dataSubDir = new File(dataSubDir.getAbsolutePath() + "/" + (ctx.version().isAfterOrEqual(SoundFilesGrabber.tryGetVersion("1.21")) ? "function" : "functions"));
             dataSubDir.mkdirs();
 
 
@@ -70,7 +71,7 @@ public class DatapackWriter {
                     if(cmd.startsWith("/")) cmd = cmd.substring(1);
                     frameStringData += cmd + "\n";
                 }
-                frameStringData += "\nschedule function " + name + ":_/" + (i+1) + " " + (ctx.frameLength() < 50 ? ctx.frameLength()/10 : (ctx.frameLength() / 50)) + "t append";
+                frameStringData += "\nschedule function " + name + ":_/" + (i+1) + " " + (ctx.frameLength() < 50 ? ctx.frameLength()/10 : (ctx.frameLength() / 50)) + "t" + (ctx.version().isAfterOrEqual(SoundFilesGrabber.tryGetVersion("1.15")) ? " append" : "");
 
                 writeFile(frameFile, frameStringData);
             }

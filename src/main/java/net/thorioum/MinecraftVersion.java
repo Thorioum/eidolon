@@ -32,7 +32,13 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
         return versionString;
     }
 
+    public boolean isAfterOrEqual(MinecraftVersion other) {
+        if(other == null) return false;
+        return this.compareTo(other) >= 0;
+    }
+
     public boolean isAfter(MinecraftVersion other) {
+        if(other == null) return false;
         return this.compareTo(other) > 0;
     }
 
