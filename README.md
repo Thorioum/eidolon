@@ -105,3 +105,7 @@ It's clear to see which is better in the examples given above. The first one, be
 
 https://github.com/user-attachments/assets/5f7f74f9-cf78-411e-9e7d-7a5a9508864a
 
+
+# Credits
+- Massive thanks to @cl_o for showing me their implementation a few months ago, inspiring me to make one of my own.
+- Big shoutout to the individuals in the SSI discord, namely @overlord2036 and @caeklol, they helped a ton!
