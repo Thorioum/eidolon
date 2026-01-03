@@ -71,7 +71,7 @@ public class DatapackWriter {
                     if(cmd.startsWith("/")) cmd = cmd.substring(1);
                     frameStringData += cmd + "\n";
                 }
-                frameStringData += "\nschedule function " + name + ":_/" + (i+1) + " " + (ctx.frameLength() < 50 ? ctx.frameLength()/10 : (ctx.frameLength() / 50)) + "t" + (ctx.version().isAfterOrEqual(SoundFilesGrabber.tryGetVersion("1.15")) ? " append" : "");
+                frameStringData += "\nschedule function " + name + ":_/" + (i+1) + " " + (ctx.frameLength() % 50 != 0 ? ctx.frameLength()/10 : (ctx.frameLength() / 50)) + "t" + (ctx.version().isAfterOrEqual(SoundFilesGrabber.tryGetVersion("1.15")) ? " append" : "");
 
                 writeFile(frameFile, frameStringData);
             }
