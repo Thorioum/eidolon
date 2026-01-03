@@ -68,7 +68,7 @@ public class Eidolon {
 
     private static boolean soundCheck(ConverterContext ctx) {
         if(ctx.sounds() == null) {
-            error("Could not find sound file and metadata for this version. Make sure to have a valid .minecraft directory, and a valid installation of your target version");
+            error("this shouldnt happen");
         }
         if(ctx.frameLength() % 50 != 0 && !SoundFilesGrabber.allowsDynamicTickrate(ctx.version())) {
             error("Because your select version is below 23w43a (1.20.3 snapshot), and /tick doesnt exist yet, your framelength can only be a multiple of 50ms!");
