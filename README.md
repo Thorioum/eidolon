@@ -7,6 +7,8 @@
 
 # How the Program Works
 
+- Use Windows probably (for now)
+  
 - Run the standalone jar, choose an input audio, choose a version you want to make the datapack for, and hit Run.
 
 - The program dynamically downloads the sound assets from the internet when you hit run—meaning if you don't have the version cached yet, you need an internet connection.
