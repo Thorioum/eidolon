@@ -1,13 +1,8 @@
 
 
 <p align="center">
-
-  <img width="128" height="128" align="center" alt="app-icon" src="https://github.com/user-attachments/assets/21440f65-68a1-4af7-a411-bd34555d47c4" />
-
-</br>
-
+  <img width="128" height="128" align="center" alt="app-icon" src="https://github.com/user-attachments/assets/21440f65-68a1-4af7-a411-bd34555d47c4" /></br>
   Java interface for converting any audio into a playable representation of Minecraft sound effects.
-
 </p>
 
 # How the Program Works
