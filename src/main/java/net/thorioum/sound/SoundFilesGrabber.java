@@ -69,7 +69,7 @@ public class SoundFilesGrabber {
                     File destinationFile = Paths.get("sounds",version.str(),sound + ".ogg").toFile();
                     File soundConfigFile = Paths.get("sounds",version.str(),sound + ".json").toFile();
 
-                    if(destinationFile.exists() && soundConfigFile.exists()) {
+                    if(destinationFile.exists() && soundConfigFile.exists() && soundConfigFile.length() > 0) {
                         fileMap().put(sound, destinationFile);
 
                         try (BufferedReader reader = Files.newBufferedReader(soundConfigFile.toPath())) {
