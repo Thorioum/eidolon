@@ -1,6 +1,7 @@
 .gradle
 build/
 sounds/
+samples/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
