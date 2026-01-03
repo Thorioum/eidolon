@@ -3,6 +3,7 @@ package net.thorioum.matchers;
 import net.thorioum.sound.ConverterContext;
 import net.thorioum.sound.SoundEffectDatabase;
 import net.thorioum.result.SingleSoundResult;
+import net.thorioum.sound.SoundMatcher;
 import org.jocl.*;
 
 import java.util.ArrayList;
@@ -83,7 +84,7 @@ public class GreedySubGpuMatcher implements Matcher {
     public boolean isReady() { return ready; }
 
     @Override
-    public void buildFromDatabase(SoundEffectDatabase db, int frameSize) {
+    public void buildFromDatabase(SoundEffectDatabase db, int frameSize, List<String> blacklistedSounds) {
         synchronized (lock) {
             release();
 
@@ -94,6 +95,8 @@ public class GreedySubGpuMatcher implements Matcher {
 
             for (Map.Entry<String, Map<Double, double[]>> e : db.pitchShiftedEffects.entrySet()) {
                 String name = e.getKey();
+                if(blacklistedSounds.contains(name)) continue;
+
                 Map<Double, double[]> pitches = e.getValue();
                 Map<Double, Double> normMap = db.effectNorms.get(name);
                 if (normMap == null) continue;
@@ -179,7 +182,7 @@ public class GreedySubGpuMatcher implements Matcher {
             clSetKernelArg(kernelDotSim, arg++, Sizeof.cl_mem, Pointer.to(dSims));
             clSetKernelArg(kernelDotSim, arg++, Sizeof.cl_mem, Pointer.to(dVols));
 
-            int localSize = 256; // tune to device
+            int localSize = 256;
             clSetKernelArg(kernelDotSim, arg++, (long) localSize * Sizeof.cl_float, null);
 
             long[] global = new long[]{(long) numCandidates * localSize};
@@ -194,13 +197,6 @@ public class GreedySubGpuMatcher implements Matcher {
             int best = -1;
             float bestSim = -Float.MAX_VALUE;
             for (int i = 0; i < numCandidates; i++) {
-
-                CandidateMeta m = meta[i];
-                Float volObj = ctx.soundVolumesMap().get(m.name);
-                float ingameSoundVolume = (volObj == null ? 1.0f : volObj);
-                float scaledVol = hVols[i] * (1.0f / (ingameSoundVolume + 1e-10f));
-                if (scaledVol >= 1.0f) continue;
-
                 float s = hSims[i];
                 if (s > bestSim) { bestSim = s; best = i; }
             }
@@ -208,7 +204,7 @@ public class GreedySubGpuMatcher implements Matcher {
 
             CandidateMeta m = meta[best];
             double volume = hVols[best];
-            return new SingleSoundResult(m.name, m.pitch, volume, bestSim);
+            return new SingleSoundResult(m.name, m.pitch, volume, bestSim, SoundMatcher.getDatabase(ctx).pitchShiftedEffects.get(m.name).get(m.pitch));
         }
     }
 

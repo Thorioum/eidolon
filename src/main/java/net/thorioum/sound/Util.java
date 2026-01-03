@@ -1,21 +1,67 @@
 package net.thorioum.sound;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.UnsupportedAudioFileException;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.Duration;
+import java.util.*;
+import java.util.regex.Pattern;
 
+import static net.thorioum.Eidolon.error;
 import static net.thorioum.sound.SoundEffectDatabase.SAMPLE_RATE;
 
-public class SoundUtil {
-    public static int getChannelCount(File audioFile)
-            throws UnsupportedAudioFileException, IOException {
+public class Util {
+    private static final HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(20))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build();
+
+    public static int getChannelCount(File audioFile) throws UnsupportedAudioFileException, IOException {
         try (AudioInputStream in = AudioSystem.getAudioInputStream(audioFile)) {
             AudioFormat fmt = in.getFormat();
-            return fmt.getChannels(); // 1 = mono, 2 = stereo, etc.
+            return fmt.getChannels();
         }
+    }
+
+    private static final Pattern DISALLOWED = Pattern.compile("[^a-z0-9_.-]");
+    public static String filterString(String input) {
+        if (input == null) return null;
+        String s = input.toLowerCase(Locale.ROOT).replace(' ', '.');
+        return DISALLOWED.matcher(s).replaceAll("");
+    }
+
+    public static String formatTime(long milliseconds) {
+        long temp = Math.abs(milliseconds);
+        temp /= 1000;
+        long seconds = temp % 60;
+        temp /= 60;
+        long minutes = temp % 60;
+        temp /= 60;
+        long hours = temp;
+        StringBuilder sb = new StringBuilder();
+        if (milliseconds < 0) {
+            sb.append("-");
+        }
+        if (hours > 0) {
+            sb.append(String.format("%d:", hours));
+            sb.append(String.format("%02d:", minutes));
+        } else {
+            sb.append(String.format("%d:", minutes));
+        }
+        sb.append(String.format("%02d", seconds));
+        return sb.toString();
     }
 
     public static double brightness(double[] samples) {
@@ -131,5 +177,44 @@ public class SoundUtil {
             prevY = y; prevX = x[i];
             x[i] = y;
         }
+    }
+
+
+    public static void downloadResource(String hash, File destination) {
+        try {
+            URL url = new URL("https://resources.download.minecraft.net/" + hash.substring(0,2) + "/" + hash);
+            try (InputStream in = url.openStream()) {
+                Files.copy(in, Paths.get(destination.toURI()), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (Exception e) {
+            error(e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static JsonObject getResourceJson(String hash) throws IOException, InterruptedException {
+        HttpRequest req = HttpRequest.newBuilder(URI.create("https://resources.download.minecraft.net/" + hash.substring(0,2) + "/" + hash))
+                .timeout(Duration.ofSeconds(5))
+                .GET()
+                .build();
+
+        HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            throw new IOException("HTTP " + resp.statusCode() + " for " + hash);
+        }
+        return JsonParser.parseString(resp.body()).getAsJsonObject();
+    }
+
+    public static JsonObject getJson(String url) throws IOException, InterruptedException {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(5))
+                .GET()
+                .build();
+
+        HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            throw new IOException("HTTP " + resp.statusCode() + " for " + url);
+        }
+        return JsonParser.parseString(resp.body()).getAsJsonObject();
     }
 }

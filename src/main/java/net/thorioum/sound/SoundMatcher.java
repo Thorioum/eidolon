@@ -22,8 +22,14 @@ import static net.thorioum.sound.SoundEffectDatabase.SAMPLE_RATE;
 
 
 public class SoundMatcher {
+    public final CompleteAudioResult result;
+    private final boolean useGpu;
 
-    public final CompleteAudioResult result = new CompleteAudioResult();
+    public SoundMatcher(CompleteAudioResult buffer, boolean useGpu) {
+        this.result = buffer;
+        this.useGpu = useGpu;
+    }
+
     private boolean ended = false;
 
     //different database for different contexts are cached
@@ -38,7 +44,6 @@ public class SoundMatcher {
 
     private static volatile GreedySubGpuMatcher GPU;
     private static volatile GreedySubCpuMatcher CPU;
-    public static boolean USE_GPU = true;
 
     public static synchronized void freeCurrentGPU() {
         if (GPU != null) {
@@ -46,12 +51,12 @@ public class SoundMatcher {
             GPU = null;
         }
     }
-    public synchronized void initializeGpuMatcher(ConverterContext ctx) {
-        if(!USE_GPU) return;
+    public synchronized void initializeGpuMatcher(ConverterContext ctx, List<String> blacklistedSounds) {
+        if(!useGpu) return;
         freeCurrentGPU();
         if (GPU == null) GPU = new GreedySubGpuMatcher();
         try {
-            GPU.buildFromDatabase(getDatabase(ctx), ctx.frameSize());
+            GPU.buildFromDatabase(getDatabase(ctx), ctx.frameSize(), blacklistedSounds);
         } catch (Throwable t) {
             t.printStackTrace();
             error("GPU unavailable");
@@ -59,11 +64,11 @@ public class SoundMatcher {
         }
 
     }
-    public synchronized void initializeCpuMatcher(ConverterContext ctx) {
+    public synchronized void initializeCpuMatcher(ConverterContext ctx, List<String> blacklistedSounds) {
         if (CPU != null) return;
 
         GreedySubCpuMatcher matcher = new GreedySubCpuMatcher();
-        matcher.buildFromDatabase(getDatabase(ctx), ctx.frameSize());
+        matcher.buildFromDatabase(getDatabase(ctx), ctx.frameSize(), blacklistedSounds);
         CPU = matcher;
     }
 
@@ -100,9 +105,6 @@ public class SoundMatcher {
 
                         result.addFrame(composition);
 
-                        info("Processed frame %d",
-                                frame);
-
                     }));
                     return true;
                 }
@@ -112,7 +114,10 @@ public class SoundMatcher {
                     result.expectedFrames = futures.size();
                     for (Future<?> future : futures) {
                         try {
-                            if(this$0.ended) return;
+                            if(this$0.ended) {
+                                Eidolon.resetExecutor();
+                                return;
+                            }
                             future.get();
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -132,15 +137,15 @@ public class SoundMatcher {
         }
     }
 
-    public void enableMatchers(ConverterContext ctx) {
+    public void enableMatchers(ConverterContext ctx, List<String> blacklistedSounds) {
         try {
-            initializeGpuMatcher(ctx);
+            initializeGpuMatcher(ctx, blacklistedSounds);
         } catch (Throwable t) {
             t.printStackTrace();
             info("GPU acceleration unavailable");
         }
         try {
-            initializeCpuMatcher(ctx);
+            initializeCpuMatcher(ctx, blacklistedSounds);
         } catch (Throwable t) {
             t.printStackTrace();
             info("CPU acceleration unavailable");
@@ -149,26 +154,22 @@ public class SoundMatcher {
 
     private SingleFrameResult findBestComposition(ConverterContext ctx, double[] targetFrame, int frameNum, int totalSounds) {
         double[] residual  = Arrays.copyOf(targetFrame, targetFrame.length);
-        SoundUtil.highPassInPlace(residual, ctx.highpass_cutoff());
+        Util.highPassInPlace(residual, ctx.highpass_cutoff());
 
-        double originalEnergyHP = SoundUtil.calculateEnergy(residual);
+        double originalEnergyHP = Util.calculateEnergy(residual);
         SingleFrameResult composition = new SingleFrameResult(frameNum);
 
         for (int i = 0; i < totalSounds; i++) {
-            double residualEnergy = SoundUtil.calculateEnergy(residual);
+            double residualEnergy = Util.calculateEnergy(residual);
             if (residualEnergy < originalEnergyHP * 0.05) break;
 
             SingleSoundResult match = findBestMatch(ctx, residual, residualEnergy);
             if (match == null || match.similarity() < 0.1) break;
 
-            float ingameSoundVolume = ctx.soundVolumesMap().get(match.name());
-            float ingameSoundPitch =  ctx.soundPitchesMap().get(match.name());
-            composition.addEffect(new SingleSoundResult(match.name(), match.pitch() * (1.0/(ingameSoundPitch+1e-10)), match.volume() * (1.0/(ingameSoundVolume+1e-10)),match.similarity()));
-
-            double[] effect  = getDatabase(ctx).pitchShiftedEffects.get(match.name()).get(match.pitch());
+            composition.addEffect(new SingleSoundResult(match.name(), match.pitch(), match.volume(),match.similarity(),match.audioData()));
 
             for (int j = 0; j < residual.length; j++) {
-                residual[j]  -= effect[j]  * match.volume();
+                residual[j]  -= match.audioData()[j]  * match.volume();
             }
         }
         return composition;
@@ -177,7 +178,7 @@ public class SoundMatcher {
         float[] resF = new float[residual.length];
         for (int i = 0; i < residual.length; i++) resF[i] = (float) residual[i];
 
-        if (USE_GPU && GPU != null && GPU.isReady()) {
+        if (useGpu && GPU != null && GPU.isReady()) {
             SingleSoundResult gm = GPU.findBestMatch(ctx, resF, residualEnergy, 0.1f);
             if (gm != null) return gm;
         }

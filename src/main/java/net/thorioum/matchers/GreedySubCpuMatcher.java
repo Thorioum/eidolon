@@ -3,6 +3,7 @@ package net.thorioum.matchers;
 import net.thorioum.sound.ConverterContext;
 import net.thorioum.sound.SoundEffectDatabase;
 import net.thorioum.result.SingleSoundResult;
+import net.thorioum.sound.SoundMatcher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,7 @@ public class GreedySubCpuMatcher implements Matcher {
     }
 
     @Override
-    public void buildFromDatabase(SoundEffectDatabase db, int frameSize) {
+    public void buildFromDatabase(SoundEffectDatabase db, int frameSize, List<String> blacklistedSounds) {
         this.frameSize = frameSize;
 
         List<float[]> rows = new ArrayList<>();
@@ -36,6 +37,8 @@ public class GreedySubCpuMatcher implements Matcher {
 
         for (Map.Entry<String, Map<Double, double[]>> e : db.pitchShiftedEffects.entrySet()) {
             String name = e.getKey();
+            if(blacklistedSounds.contains(name)) continue;
+
             Map<Double, double[]> pitches = e.getValue();
             Map<Double, Double> normMap = db.effectNorms.get(name);
             if (normMap == null) continue;
@@ -116,12 +119,6 @@ public class GreedySubCpuMatcher implements Matcher {
             if (vol < 0.0f) vol = 0.0f;
             if (vol > 1.0f) vol = 1.0f;
 
-            String name = names[c];
-            Float volObj = ctx.soundVolumesMap().get(name);
-            float ingameSoundVolume = (volObj == null ? 1.0f : volObj);
-            float scaledVol = vol * (1.0f / (ingameSoundVolume + 1e-10f));
-            if (scaledVol >= 1.0f) continue;
-
             bestSim = sim;
             bestIdx = c;
             bestVol = vol;
@@ -131,6 +128,6 @@ public class GreedySubCpuMatcher implements Matcher {
 
         String name = names[bestIdx];
         double pitch = pitches[bestIdx];
-        return new SingleSoundResult(name, pitch, bestVol, bestSim);
+        return new SingleSoundResult(name, pitch, bestVol, bestSim, SoundMatcher.getDatabase(ctx).pitchShiftedEffects.get(name).get(pitch));
     }
 }

@@ -11,24 +11,31 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 
 import static net.thorioum.Eidolon.*;
 
 public class SoundEffectDatabase {
-    public static final int SAMPLE_RATE = 44100;
+    public static final int SAMPLE_RATE = 48000;
 
-    public final Map<String, Map<Double, double[]>> pitchShiftedEffects = new HashMap<>(); // raw
-    public final Map<String, Map<Double, Double>> effectNorms = new HashMap<>();
+    public final Map<String, Map<Double, double[]>> pitchShiftedEffects = new ConcurrentHashMap<>(); // raw
+    public final Map<String, Map<Double, Double>> effectNorms = new ConcurrentHashMap<>();
+
+    public int metaExpectedSounds = -1;
+    public int metaProcessedSounds() {
+        return effectNorms.size();
+    }
 
     public void processSounds(ConverterContext ctx) {
         List<Future<?>> futures = new ArrayList<>();
+        metaExpectedSounds = ctx.soundFilesMap().size();
 
         for (Map.Entry<String, File> entry : ctx.soundFilesMap().entrySet()) {
+            if(effectNorms.containsKey(entry.getKey())) continue;
             futures.add(executor.submit(() -> {
 
                 String name = entry.getKey();
-                if(ctx.blacklistedSounds().contains(name)) return;
 
                 if(!pitchShiftedEffects.containsKey(name)) {
                     File file = entry.getValue();
@@ -40,23 +47,25 @@ public class SoundEffectDatabase {
             try {
                 future.get();
             } catch (Exception e) {
-                error(e.toString());
-                e.printStackTrace();
+                if(!(e instanceof InterruptedException)) {
+                    error(e.toString());
+                    e.printStackTrace();
+                }
             }
         }
         info("Processed all sound files! (" + this.pitchShiftedEffects.size() + " sounds)");
+        info("Ignored sounds are either blacklisted, or are multi-channel/stereo");
     }
 
 
     public void loadSoundAndPitches(ConverterContext ctx, String name, File audioFile) {
         try {
-            if(!ctx.allowStereoSounds()) {
-                try {
-                    if (SoundUtil.getChannelCount(audioFile) != 1) {
-                        return;
-                    }
-                } catch (Exception ignored) {}
-            }
+            try {
+                if (Util.getChannelCount(audioFile) != 1) {
+                    return;
+                }
+            } catch (Exception ignored) {}
+
 
             AudioDispatcher dispatcher = AudioDispatcherFactory.fromPipe(
                     audioFile.getAbsolutePath(),
@@ -72,7 +81,7 @@ public class SoundEffectDatabase {
             final List<Pair<Double,List<Double>>> pitchMap = new ArrayList<>();
 
             for (int i = 0; i < (pitchIntensity+1); i++) {
-                double pitch = SoundUtil.pitchFunc(i,pitchIntensity);
+                double pitch = Util.pitchFunc(i,pitchIntensity);
                 pitchMap.add(new Pair<>(pitch, new ArrayList<>()));
             }
 
@@ -101,7 +110,7 @@ public class SoundEffectDatabase {
                         List<Double> audioBuffer = pitchMap.get(i).right;
                         if(audioBuffer.size() >= ctx.frameSize()) continue;
 
-                        double pitch = SoundUtil.pitchFunc(i,pitchIntensity);
+                        double pitch = Util.pitchFunc(i,pitchIntensity);
                         RateTransposer rateTransposer = new RateTransposer(pitch);
 
                         float[] outputBuffer = new float[(int) (samplesInBuffer / pitch)];
@@ -136,8 +145,13 @@ public class SoundEffectDatabase {
                                 .mapToDouble(Double::doubleValue)
                                 .toArray();
 
-                        if(SoundUtil.brightness(audio) > ctx.brightnessThreshold()) return;
-                        double norm = Math.sqrt(SoundUtil.calculateEnergy(audio));
+                        float ingameVolume = ctx.soundVolumesMap().get(name);
+                        for(int i = 0; i < audio.length; i++) {
+                            audio[i] = audio[i] * ingameVolume;
+                        }
+
+                        if(Util.brightness(audio) > ctx.brightnessThreshold()) return;
+                        double norm = Math.sqrt(Util.calculateEnergy(audio));
 
                         pitchShiftedEffects.computeIfAbsent(name, k->new HashMap<>()).put(pitch,audio);
                         effectNorms.computeIfAbsent(name, k -> new HashMap<>()).put(pitch, norm);

@@ -20,4 +20,9 @@ public class CompleteAudioResult {
     public List<SingleFrameResult> composition() {
         return new ArrayList<>(compositions);
     }
+
+    public void clear() {
+        expectedFrames = -1;
+        compositions.clear();
+    }
 }

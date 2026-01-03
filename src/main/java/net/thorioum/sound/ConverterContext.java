@@ -14,9 +14,7 @@ public record ConverterContext(
         int frameLength,
         int pitchesPerSound,
         double highpass_cutoff,
-        double brightnessThreshold,
-        boolean allowStereoSounds,
-        List<String> blacklistedSounds
+        double brightnessThreshold
 ) {
     public SoundFilesGrabber.SoundFilesEntry sounds() {
         return SoundFilesGrabber.soundMap.get(version);
@@ -29,7 +27,7 @@ public record ConverterContext(
         return sounds().soundPitchesMap();
     }
     public Map<String, File> soundFilesMap() {
-        return sounds().soundFilesMap();
+        return sounds().soundFilesMap().fileMap();
     }
 
     public int frameSize() {
@@ -41,11 +39,11 @@ public record ConverterContext(
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ConverterContext that = (ConverterContext) o;
-        return frameLength == that.frameLength && pitchesPerSound == that.pitchesPerSound && Double.compare(highpass_cutoff, that.highpass_cutoff) == 0 && allowStereoSounds == that.allowStereoSounds && Double.compare(brightnessThreshold, that.brightnessThreshold) == 0 && Objects.equals(version, that.version) && Objects.equals(blacklistedSounds, that.blacklistedSounds);
+        return frameLength == that.frameLength && pitchesPerSound == that.pitchesPerSound && Double.compare(highpass_cutoff, that.highpass_cutoff) == 0 && Double.compare(brightnessThreshold, that.brightnessThreshold) == 0 && Objects.equals(version, that.version);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(version, frameLength, pitchesPerSound, highpass_cutoff, brightnessThreshold, allowStereoSounds, blacklistedSounds);
+        return Objects.hash(version, frameLength, pitchesPerSound, brightnessThreshold);
     }
 }

@@ -1,6 +1,6 @@
 package net.thorioum.result;
 
-public record SingleSoundResult(String name, double pitch, double volume, double similarity) {
+public record SingleSoundResult(String name, double pitch, double volume, double similarity, double[] audioData) {
 
     public String asCommand() {
         String p = String.format("%.8f", pitch);

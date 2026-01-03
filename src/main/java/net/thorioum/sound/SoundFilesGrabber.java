@@ -3,118 +3,97 @@ package net.thorioum.sound;
 import com.google.gson.*;
 import net.thorioum.MinecraftVersion;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.net.URI;
+import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.nio.file.StandardCopyOption;
+import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import static net.thorioum.Eidolon.error;
 import static net.thorioum.Eidolon.info;
+import static net.thorioum.sound.Util.*;
 
 public class SoundFilesGrabber {
-    public record SoundFilesEntry(
-            Map<String, Float> soundVolumesMap,
-            Map<String, Float> soundPitchesMap,
-            Map<String, File> soundFilesMap){}
 
-    public static final Map<MinecraftVersion, SoundFilesEntry> soundMap = new ConcurrentHashMap<>();
+    public static class SoundDataEntries{
+        private final MinecraftVersion version;
+        private final String url;
+        private boolean resolved = false;
+        private final Map<String, File> fileMap = new HashMap<>();
 
-    public static boolean allowsDynamicTickrate(MinecraftVersion version) {
-        MinecraftVersion firstVersionWithTick = MinecraftVersion.parse("23w43a");
-        return version.isAfter(firstVersionWithTick);
-    }
-
-    public static void init() {
-        info("Resolving minecraft versions sounds. . .");
-
-        Path mcDir = Paths.get(System.getProperty("user.home"), "AppData", "Roaming", ".minecraft");
-
-        Path versionsDir = mcDir.resolve("versions");
-
-        Set<Path> versionDirs = new HashSet<>();
-        try (Stream<Path> pathStream = Files.walk(versionsDir, 1)) {
-            pathStream
-                    .filter(Files::isDirectory)
-                    .filter(path -> !versionsDir.equals(path))
-                    .filter(p -> p.getFileName()
-                            .toString()
-                            .matches("^\\d.*"))
-                    .forEach(versionDirs::add);
-
-        } catch (IOException e) {
-            error(e.getMessage());
-            e.printStackTrace();
+        public SoundDataEntries(MinecraftVersion version, String versionUrl) {
+            this.version = version;
+            this.url = versionUrl;
         }
 
-        for(Path versionDir : versionDirs) {
-            String versionName = versionDir.getFileName().toString();
+        public Map<String, File> fileMap() {
+            Path cacheDir = Paths.get("sounds",version.str());
+            cacheDir.toFile().mkdirs();
+
+            return fileMap;
+        }
+        public boolean isResolved() {
+            return resolved;
+        }
+        private boolean resolving = false;
+        public void resolveSounds() {
+            if(isResolved() || resolving) return;
+            resolving = true;
             try {
-                MinecraftVersion.parse(versionName);
-            } catch (NumberFormatException e) {
-                continue;
-            }
+                JsonObject versionJson = getJson(url);
 
-            final Map<String, Float> volumes = new ConcurrentHashMap<>();
-            final Map<String, Float> pitches = new ConcurrentHashMap<>();
-            final Map<String, File> soundFiles = new ConcurrentHashMap<>();
+                JsonObject assetIndex = versionJson.getAsJsonObject("assetIndex");
+                String versionAssetsUrl = assetIndex.get("url").getAsString();
 
-            File versionJsonFile = versionDir.resolve(versionName + ".json").toFile();
+                JsonObject versionAssetsJson = getJson(versionAssetsUrl).getAsJsonObject("objects");
+                JsonObject soundsJsonObject = versionAssetsJson.getAsJsonObject("minecraft/sounds.json");
+                String soundsJsonHash = soundsJsonObject.get("hash").getAsString();
 
-            File assetsFile = null;
-            try (FileReader reader = new FileReader(versionJsonFile)) {
-                JsonElement jsonElement = JsonParser.parseReader(reader);
-                JsonObject jsonObject = jsonElement.getAsJsonObject();
+                final Map<String, Float> volumes = soundMap.get(version).soundVolumesMap;
+                final Map<String, Float> pitches = soundMap.get(version).soundPitchesMap;
+                fileMap();
 
-                String assetsName = jsonObject.get("assets").getAsString();
+                JsonObject soundsJson = getResourceJson(soundsJsonHash);
+                for (String sound : soundsJson.keySet()) {
+                    File destinationFile = Paths.get("sounds",version.str(),sound + ".ogg").toFile();
+                    File soundConfigFile = Paths.get("sounds",version.str(),sound + ".json").toFile();
 
-                Path assetsPath = mcDir.resolve("assets/indexes/" + assetsName + ".json");
-                assetsFile = assetsPath.toFile();
-            } catch (Exception ignored) {
+                    if(destinationFile.exists() && soundConfigFile.exists()) {
+                        fileMap().put(sound, destinationFile);
 
-            }
+                        try (BufferedReader reader = Files.newBufferedReader(soundConfigFile.toPath())) {
+                            JsonObject config = JsonParser.parseReader(reader).getAsJsonObject();
+                            volumes.put(sound, config.get("volume").getAsFloat());
+                            pitches.put(sound, config.get("pitch").getAsFloat());
+                        } catch (Exception e) {
+                            error(e.getMessage());
+                            e.printStackTrace();
+                        }
+                        continue;
+                    }
 
-            if(assetsFile == null || !assetsFile.exists()) continue;
 
-            String soundsJsonHash = null;
-            JsonObject assetsObject = null;
-            try (FileReader reader = new FileReader(assetsFile)) {
-                JsonElement jsonElement = JsonParser.parseReader(reader);
-                JsonObject jsonObject = jsonElement.getAsJsonObject();
-
-                JsonObject soundsJsonObject = jsonObject.getAsJsonObject("objects").getAsJsonObject("minecraft/sounds.json");
-                soundsJsonHash = soundsJsonObject.get("hash").getAsString();
-                assetsObject = jsonObject;
-            } catch (Exception e) {
-                error(assetsFile + " : " + e.getMessage());
-                e.printStackTrace();
-            }
-
-            if(soundsJsonHash == null) continue;
-
-            File soundsJsonFile = mcDir.resolve("assets/objects/" + soundsJsonHash.substring(0,2) + "/" + soundsJsonHash).toFile();
-
-            try (FileReader reader = new FileReader(soundsJsonFile)) {
-                JsonElement jsonElement = JsonParser.parseReader(reader);
-                JsonObject jsonObject = jsonElement.getAsJsonObject();
-
-                for(String sound : jsonObject.keySet()) {
-                    JsonArray possibleSubSounds = jsonObject.getAsJsonObject(sound).getAsJsonArray("sounds");
+                    JsonArray possibleSubSounds = soundsJson.getAsJsonObject(sound).getAsJsonArray("sounds");
 
                     //ignore sound effects that could possibly play different sound files
-                    if(possibleSubSounds.size() != 1) continue;
+                    if (possibleSubSounds.size() != 1) continue;
 
                     JsonElement soundElement = possibleSubSounds.get(0);
                     final float volume;
                     final float pitch;
                     String soundFileName;
-                    if(soundElement instanceof JsonObject soundObject) {
+                    if (soundElement instanceof JsonObject soundObject) {
                         volume = soundObject.has("volume") ? soundObject.get("volume").getAsFloat() : 1.0f;
                         pitch = soundObject.has("pitch") ? soundObject.get("pitch").getAsFloat() : 1.0f;
                         soundFileName = soundObject.get("name").getAsString();
@@ -129,26 +108,107 @@ public class SoundFilesGrabber {
                     soundFileName = "minecraft/sounds/" + soundFileName + ".ogg";
 
                     try {
-                        String soundFileHash = assetsObject
-                                .getAsJsonObject("objects")
+                        String soundFileHash = versionAssetsJson
                                 .getAsJsonObject(soundFileName)
                                 .get("hash").getAsString();
-                        File soundFile = mcDir.resolve("assets/objects/" + soundFileHash.substring(0,2) + "/" + soundFileHash).toFile();
-                        soundFiles.put(sound,soundFile);
+
+                        downloadResource(soundFileHash,destinationFile);
+                        fileMap().put(sound,destinationFile);
+
+                        JsonObject config = new JsonObject();
+                        config.addProperty("volume",volume);
+                        config.addProperty("pitch",pitch);
+
+                        try (FileWriter writer = new FileWriter(soundConfigFile)) {
+                            new Gson().toJson(config, writer);
+                        } catch (IOException e) {
+                            error(e.getMessage());
+                            e.printStackTrace();
+                        }
+
                     } catch (Exception ignored) {
+
                     }
                 }
-
+                resolved = true;
             } catch (Exception e) {
                 error(e.getMessage());
                 e.printStackTrace();
             }
+        }
+    }
 
-            soundMap.put(MinecraftVersion.parse(versionName),new SoundFilesEntry(volumes,pitches,soundFiles));
+    public record SoundFilesEntry(
+            Map<String, Float> soundVolumesMap,
+            Map<String, Float> soundPitchesMap,
+            SoundDataEntries soundFilesMap)
+    {}
+
+    public static final Map<MinecraftVersion, SoundFilesEntry> soundMap = new ConcurrentHashMap<>();
+
+    public static boolean allowsDynamicTickrate(MinecraftVersion version) {
+        MinecraftVersion firstVersionWithTick = new MinecraftVersion("23w43a",1698240877);
+        return version.isAfter(firstVersionWithTick) || version.compareTo(firstVersionWithTick) == 0;
+    }
+
+
+    private static final String VERSION_MANIFEST = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+
+
+    public static void init() {
+        info("Resolving minecraft versions sounds. . .");
+        Path cacheDir = Paths.get("sounds");
+        cacheDir.toFile().mkdirs();
+
+        try {
+            JsonObject versionManifest = getJson(VERSION_MANIFEST);
+            readManifest(versionManifest);
+            File manifest = Paths.get("sounds","manifest.json").toFile();
+            if(!manifest.exists()) manifest.createNewFile();
+
+            //cache it
+            try (FileWriter writer = new FileWriter(manifest)) {
+                new Gson().toJson(versionManifest, writer);
+            } catch (IOException e) {
+                error(e.getMessage());
+                e.printStackTrace();
+            }
+
+            info("Resolved version manifest from mojang website.");
+            return;
+        } catch (Exception e) {
+            error(e.getMessage());
+            e.printStackTrace();
         }
 
-        info("Sounds Index Initialized");
+        if(Files.exists(Paths.get("sounds","manifest.json"))) {
+            try (BufferedReader reader = Files.newBufferedReader(Paths.get("sounds","manifest.json"))) {
+                JsonObject versionManifest = JsonParser.parseReader(reader).getAsJsonObject();
+                readManifest(versionManifest);
+            } catch (Exception e) {
+                error(e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        info("Resolved version manifest from local cache");
 
     }
+    private static void readManifest(JsonObject versionManifest) {
+        JsonArray versionsArray = versionManifest.getAsJsonArray("versions");
+        for(JsonElement element : versionsArray) {
+            if(!(element instanceof JsonObject versionObject)) continue;
+
+            String versionUrl = versionObject.get("url").getAsString();
+            String time = versionObject.get("releaseTime").getAsString();
+            String id = versionObject.get("id").getAsString();
+
+            MinecraftVersion version = new MinecraftVersion(id,time);
+
+            SoundFilesEntry entry = new SoundFilesEntry(new HashMap<>(),new HashMap<>(),new SoundDataEntries(version,versionUrl));
+            soundMap.put(version,entry);
+        }
+    }
+
 
 }

@@ -1,17 +1,31 @@
 package net.thorioum;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.HashMap;
+import java.util.Map;
+
+import static net.thorioum.Eidolon.error;
+
 public class MinecraftVersion implements Comparable<MinecraftVersion> {
-    private int major, minor, patch;
-    private Stage stage;
-    private int stageNumber = 0;
 
-    private String versionString;
-    public MinecraftVersion(String versionString) {
+    private static final Map<String, Long> versionDateCache = new HashMap<>();
+    private final String versionString;
+    private long releaseDate = -1;
+
+    public MinecraftVersion(String versionString, String releaseDateString) {
         this.versionString = versionString;
+        try {
+            this.releaseDate = OffsetDateTime.parse(releaseDateString).toEpochSecond();
+            versionDateCache.put(versionString,releaseDate);
+        } catch (DateTimeParseException e) {
+            error(e.getMessage());
+            e.printStackTrace();
+        }
     }
-
-    enum Stage {
-        SNAPSHOT, PRE, RC, RELEASE
+    public MinecraftVersion(String versionString, long time) {
+        this.versionString = versionString;
+        this.releaseDate = time;
     }
 
     public String str() {
@@ -22,39 +36,9 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
         return this.compareTo(other) > 0;
     }
 
-    public static MinecraftVersion parse(String s) {
-        MinecraftVersion v = new MinecraftVersion(s);
-
-        if (s.matches("\\d{2}w\\d{2}[a-z]")) {
-            v.stage = Stage.SNAPSHOT;
-            return v;
-        }
-
-        String[] baseAndSuffix = s.split("-", 2);
-        String[] nums = baseAndSuffix[0].split("\\.");
-
-        v.major = parseInt(nums, 0);
-        v.minor = parseInt(nums, 1);
-        v.patch = parseInt(nums, 2);
-
-        if (baseAndSuffix.length == 1) {
-            v.stage = Stage.RELEASE;
-            return v;
-        }
-
-        String suffix = baseAndSuffix[1];
-
-        if (suffix.startsWith("pre")) {
-            v.stage = Stage.PRE;
-            v.stageNumber = Integer.parseInt(suffix.substring(3));
-        } else if (suffix.startsWith("rc")) {
-            v.stage = Stage.RC;
-            v.stageNumber = Integer.parseInt(suffix.substring(2));
-        } else {
-            v.stage = Stage.RELEASE;
-        }
-
-        return v;
+    public static MinecraftVersion get(String s) {
+        long time = versionDateCache.getOrDefault(s,-1L);
+        return new MinecraftVersion(s,time);
     }
 
     private static int parseInt(String[] a, int i) {
@@ -63,15 +47,7 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
 
     @Override
     public int compareTo(MinecraftVersion o) {
-        int c;
-
-        if ((c = Integer.compare(major, o.major)) != 0) return c;
-        if ((c = Integer.compare(minor, o.minor)) != 0) return c;
-        if ((c = Integer.compare(patch, o.patch)) != 0) return c;
-
-        if ((c = Integer.compare(stageRank(), o.stageRank())) != 0) return c;
-
-        return Integer.compare(stageNumber, o.stageNumber);
+        return Long.compare(this.releaseDate,o.releaseDate);
     }
     @Override
     public String toString() {
@@ -87,13 +63,5 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
     @Override
     public int hashCode() {
         return versionString != null ? versionString.hashCode() : 0;
-    }
-    private int stageRank() {
-        return switch (stage) {
-            case SNAPSHOT -> 0;
-            case PRE -> 1;
-            case RC -> 2;
-            case RELEASE -> 3;
-        };
     }
 }
