@@ -5,6 +5,11 @@
   Java interface for converting any audio into a playable representation of Minecraft sound effects. Pure vanilla minecraft.
 </p>
 
+# PreReqs
+- Have Java 21 installed
+- Download the latest release of the program from the releases tab and simply run it.
+- - *Alternatively, you can build the program yourself by cloning this repository, and then running* ```gradlew build```.
+
 # What does it do?
 This program takes any audio and calculates the best representation of that audio using only minecraft sounds effects.  
 These minecraft sound effects are then perfectly playable through just the vanilla /playsound command
