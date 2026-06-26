@@ -2,11 +2,22 @@
 
 <p align="center">
   <img width="128" height="128" align="center" alt="app-icon" src="https://github.com/user-attachments/assets/21440f65-68a1-4af7-a411-bd34555d47c4" /></br>
-  Java interface for converting any audio into a playable representation of Minecraft sound effects.
+  Java interface for converting any audio into a playable representation of Minecraft sound effects. Pure vanilla minecraft.
 </p>
 
-# How the Program Works
+# PreReqs
+- Have Java 21 installed
+- Download the latest release of the program from the releases tab and simply run it.
+- - *Alternatively, you can build the program yourself by cloning this repository, and then running* ```gradlew build```.
 
+# What does it do?
+This program takes any audio and calculates the best representation of that audio using only minecraft sounds effects.  
+These minecraft sound effects are then perfectly playable through just the vanilla /playsound command
+<img width="1600" height="500" alt="image" src="https://github.com/user-attachments/assets/66ab0eee-12fa-47af-b52e-faddfb6ddd9b" />
+
+# How the Program Works
+- Use Windows probably (for now)
+  
 - Run the standalone jar, choose an input audio, choose a version you want to make the datapack for, and hit Run.
 
 - The program dynamically downloads the sound assets from the internet when you hit run—meaning if you don't have the version cached yet, you need an internet connection.
@@ -105,3 +116,7 @@ It's clear to see which is better in the examples given above. The first one, be
 
 https://github.com/user-attachments/assets/5f7f74f9-cf78-411e-9e7d-7a5a9508864a
 
+
+# Credits
+- Massive thanks to @cl_o for showing me their implementation a few months ago, inspiring me to make one of my own.
+- Big shoutout to the individuals in the SSI discord, namely @overlord2036 and @caeklol, they helped a ton!
