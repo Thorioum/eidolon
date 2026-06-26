@@ -46,7 +46,7 @@ dependencies {
     library("com.google.code.gson:gson:2.13.2")
     library("com.google.code.gson:gson:2.13.2")
 
-    library("com.github.felipeucelli:javatube:a9fb5e34db")
+    library("com.github.felipeucelli:javatube:master-SNAPSHOT")
 
     library("be.tarsos.dsp:jvm:2.5")
     library("be.tarsos.dsp:core:2.5")
